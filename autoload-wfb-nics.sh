@@ -48,9 +48,9 @@ if [[ "$current_wfb_nics" != "$new_wfb_nics" ]]; then
     echo "$new_wfb_nics" >/etc/default/wifibroadcast
     
     if [[ "$AGGREGATOR_ENABLED" == true ]]; then
-        systemctl restart wfb-cluster-node &
+        systemctl restart wfb-cluster-node
     else
-        systemctl restart wifibroadcast &
+        systemctl restart wifibroadcast
     fi
 
     # Log to file if --log argument was provided
