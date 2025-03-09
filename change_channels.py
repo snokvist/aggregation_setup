@@ -8,13 +8,17 @@ import os
 import signal
 
 CONFIG_FILE = "/etc/wifibroadcast.cfg"
-SCRIPT_FILE = "/usr/sbin/wfb-ng-change.sh"
+# The file that holds default values (to be updated and restored if needed)
+DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"
+# The command file that is executed on nodes
+CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"
 SSH_TIMEOUT = 5  # seconds
 
-def read_defaults(filename=SCRIPT_FILE):
+def read_defaults(filename=DEFAULTS_FILE):
     """
     Read and return the current default values from the given file.
     Returns a tuple (default_channel, default_bandwidth, default_region).
+    The regexes allow for optional leading whitespace.
     """
     try:
         with open(filename, 'r') as f:
@@ -23,9 +27,9 @@ def read_defaults(filename=SCRIPT_FILE):
         logging.error(f"Failed to read {filename}: {e}")
         sys.exit(1)
 
-    channel_match = re.search(r'^DEFAULT_CHANNEL\s*=\s*(\S+)', content, re.MULTILINE)
-    bandwidth_match = re.search(r'^DEFAULT_BANDWIDTH\s*=\s*"([^"]*)"', content, re.MULTILINE)
-    region_match = re.search(r'^DEFAULT_REGION\s*=\s*"([^"]*)"', content, re.MULTILINE)
+    channel_match = re.search(r'^\s*DEFAULT_CHANNEL\s*=\s*(\S+)', content, re.MULTILINE)
+    bandwidth_match = re.search(r'^\s*DEFAULT_BANDWIDTH\s*=\s*"?([^"\n]+)"?', content, re.MULTILINE)
+    region_match = re.search(r'^\s*DEFAULT_REGION\s*=\s*"?([^"\n]+)"?', content, re.MULTILINE)
 
     if not (channel_match and bandwidth_match and region_match):
         logging.error("Failed to extract default values from the script file.")
@@ -33,9 +37,37 @@ def read_defaults(filename=SCRIPT_FILE):
 
     return channel_match.group(1), bandwidth_match.group(1), region_match.group(1)
 
-def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=SCRIPT_FILE):
+def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
     """
-    Restore the default values in the script file to the original values.
+    Update the default values in the given file to the new values.
+    """
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        logging.error(f"Failed to read {filename} for update: {e}")
+        sys.exit(1)
+
+    content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_CHANNEL\s*=\s*).*$',
+                         r'\g<prefix>' + str(new_channel),
+                         content, flags=re.MULTILINE)
+    content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_BANDWIDTH\s*=\s*).*$',
+                         r'\g<prefix>"' + new_bandwidth + '"',
+                         content_new, flags=re.MULTILINE)
+    content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_REGION\s*=\s*).*$',
+                         r'\g<prefix>"' + new_region + '"',
+                         content_new, flags=re.MULTILINE)
+    try:
+        with open(filename, 'w') as f:
+            f.write(content_new)
+    except Exception as e:
+        logging.error(f"Failed to write updated defaults to {filename}: {e}")
+        sys.exit(1)
+    logging.info("Default values updated successfully.")
+
+def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=DEFAULTS_FILE):
+    """
+    Restore the default values in the given file to the original values.
     """
     try:
         with open(filename, 'r') as f:
@@ -44,13 +76,15 @@ def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=SCRIPT_
         logging.error(f"Failed to read {filename} for restore: {e}")
         return False
 
-    content_new = re.sub(r'^(DEFAULT_CHANNEL\s*=\s*).*$',
-                         r'\g<1>' + orig_channel, content, flags=re.MULTILINE)
-    content_new = re.sub(r'^(DEFAULT_BANDWIDTH\s*=\s*").*(")$',
-                         r'\g<1>' + orig_bandwidth + r'\2', content_new, flags=re.MULTILINE)
-    content_new = re.sub(r'^(DEFAULT_REGION\s*=\s*").*(")$',
-                         r'\g<1>' + orig_region + r'\2', content_new, flags=re.MULTILINE)
-
+    content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_CHANNEL\s*=\s*).*$',
+                         r'\g<prefix>' + str(orig_channel),
+                         content, flags=re.MULTILINE)
+    content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_BANDWIDTH\s*=\s*).*$',
+                         r'\g<prefix>"' + orig_bandwidth + '"',
+                         content_new, flags=re.MULTILINE)
+    content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_REGION\s*=\s*).*$',
+                         r'\g<prefix>"' + orig_region + '"',
+                         content_new, flags=re.MULTILINE)
     try:
         with open(filename, 'w') as f:
             f.write(content_new)
@@ -64,7 +98,7 @@ def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=SCRIPT_
 def extract_nodes_block(content):
     """
     Extract the entire nodes block from the config file.
-    It finds the line where nodes = { starts and then uses brace counting
+    It finds the line where 'nodes = {' starts and then uses brace counting
     to return everything inside the outermost { }.
     """
     match = re.search(r'nodes\s*=\s*\{', content)
@@ -86,13 +120,12 @@ def extract_nodes_block(content):
         logging.error("Braces in 'nodes' block are not balanced.")
         sys.exit(1)
     
-    # Return the content inside the outermost { }
     return content[start_index:i-1]
 
 def parse_nodes(filename=CONFIG_FILE):
     """
     Parse the config file to extract node IP addresses from the nodes keys.
-    This function extracts the nodes block and then uses a regex that only matches
+    This function extracts the nodes block and uses a regex that matches
     quoted IP addresses immediately followed by a colon.
     """
     try:
@@ -112,9 +145,9 @@ def parse_nodes(filename=CONFIG_FILE):
 
 def run_command(ip, command, is_local=False):
     """
-    Run the given command either locally or remotely over SSH.
-    For remote (SSH) commands, a timeout is applied. If the command does not
-    complete in time, the process group is killed.
+    Run the given command either locally or remotely (via SSH).
+    For remote commands, a timeout is applied and if exceeded the entire
+    process group is killed.
     Returns a subprocess.CompletedProcess instance.
     """
     try:
@@ -124,7 +157,6 @@ def run_command(ip, command, is_local=False):
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     text=True)
         else:
-            # For remote commands, build the ssh command.
             ssh_command = f"ssh root@{ip} '{command}'"
             logging.info(f"Running remote command on {ip}: {ssh_command}")
             proc = subprocess.Popen(ssh_command, shell=True,
@@ -151,19 +183,17 @@ def run_command(ip, command, is_local=False):
 
 def cleanup():
     """
-    Cleanup actions on exit (e.g., closing connections, removing temporary files, etc.)
+    Cleanup actions on exit (for example, closing connections, removing temporary files, etc.)
     """
     logging.info("Performing cleanup actions...")
 
 def main():
-    # Check for root privileges.
+    # Require running as root.
     if os.geteuid() != 0:
         logging.error("This program must be run as root.")
         sys.exit(1)
 
-    # Read original default values from the script file.
-    orig_channel, orig_bandwidth, orig_region = read_defaults()
-
+    # Parse command-line arguments.
     parser = argparse.ArgumentParser(
         description="Script to change the wireless channel on nodes based on /etc/wifibroadcast.cfg"
     )
@@ -176,24 +206,30 @@ def main():
                         help="If set, sync VTX by sending '/usr/bin/sync_channel.sh <channel> <bandwidth> <region>' to root@10.5.0.10")
     args = parser.parse_args()
 
-    # Build the main command.
-    command = f"/usr/sbin/wfb-ng-change.sh {args.channel} {args.bandwidth} {args.region}"
+    # Read original default values from the defaults file.
+    orig_channel, orig_bandwidth, orig_region = read_defaults()
+    logging.info(f"Original defaults: CHANNEL={orig_channel}, BANDWIDTH={orig_bandwidth}, REGION={orig_region}")
+
+    # Update the defaults file with the new values.
+    update_defaults(args.channel, args.bandwidth, args.region)
+
+    # Build the command that will be executed on each node.
+    command = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region}"
     logging.info(f"Using command: {command}")
 
-    # Parse nodes from config file.
+    # Parse node IP addresses from the configuration file.
     ips = parse_nodes()
     if not ips:
         logging.error("No nodes to process. Exiting.")
         sys.exit(1)
 
-    # Split nodes: local and remote.
+    # Process local nodes first.
     local_ips = [ip for ip in ips if ip == "127.0.0.1"]
     remote_ips = [ip for ip in ips if ip != "127.0.0.1"]
 
     success = {}
     errors = {}
 
-    # Process local nodes first.
     try:
         for ip in local_ips:
             if args.handle_local_separately:
@@ -212,7 +248,7 @@ def main():
         cleanup()
         sys.exit(1)
 
-    # If --sync-vtx is used, run sync command on host 10.5.0.10.
+    # If --sync-vtx is requested, run the sync command on host 10.5.0.10.
     if args.sync_vtx:
         sync_command = f"/usr/bin/sync_channel.sh {args.channel} {args.bandwidth} {args.region}"
         logging.info(f"Syncing VTX by running command on 10.5.0.10: {sync_command}")
