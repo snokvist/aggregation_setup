@@ -1,3 +1,6 @@
+#!/bin/bash
+
+# Initialize log file and type variables
 LOG_FILE=""
 TYPE=""
 
