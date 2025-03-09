@@ -1,14 +1,44 @@
-## IP-Plan
+### IP-Plan
 
-# OpenWRT Subnet: 192.168.2.* / 255.255.255.0
-- 192.168.2.20 (OpenWRT Hub to Radxa ethernet. Standard GW)
-- 192.168.2.30 (OpenWRT Hub/Node)
-- 192.168.2.31 (OpenWRT Node)
+## OpenWRT Subnet: 192.168.2.* / 255.255.255.0
+- 192.168.2.20 (Google Wifi Gale to Radxa ethernet. Standard GW)
+- 192.168.2.30 (Google Wifi Gale OpenWRT Hub/Node)
+- 192.168.2.31 (CPE510v3 OpenWRT Node)
 - Setup standard GW to 192.168.1.20
 
-# Radxa Subnet: 192.168.1.* / 255.255.255.0
+## Radxa Subnet: 192.168.1.* / 255.255.255.0
 
-## sbc groundstation
+
+
+
+### OpenWRT
+https://firmware-selector.openwrt.org/
+
+## CPE510v3
+https://firmware-selector.openwrt.org/?version=24.10.0&target=ath79%2Fgeneric&id=tplink_cpe510-v3
+Install packages special:
+base-files ca-bundle dnsmasq dropbear firewall4 fstools kmod-ath9k kmod-gpio-button-hotplug kmod-nft-offload libc libgcc libustream-mbedtls logd mtd netifd nftables odhcp6c odhcpd-ipv6only procd-ujail swconfig uboot-envtools uci uclient-fetch urandom-seed urngd wpad-basic-mbedtls rssileds bash wfb-ng
+
+Special setup without luci:
+/etc/config/wireless
+config wifi-iface 'wifinet2'
+        option device 'radio0'
+        option mode 'monitor'
+        option ssid 'monitor'
+        option ifname 'phy1-wfb'
+        option network 'lan'
+ 
+/etc/config/network
+config interface 'lan'
+        option device 'br-lan'
+        option proto 'static'
+        option ipaddr '192.168.2.31'
+        option netmask '255.255.255.0'
+        option ip6assign '60'
+        option gateway '192.168.2.20'
+
+
+### sbc groundstation
 - /config/scripts/stream.sh
 - /config/scripts/autoload-wfb-nics.sh
 - /etc/wifibroadcast.cfg
