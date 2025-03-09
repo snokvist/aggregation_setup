@@ -7,8 +7,19 @@
 - Setup standard GW to 192.168.1.20
 
 ## Radxa Subnet: 192.168.1.* / 255.255.255.0
+- 192.168.1.20 Radxa main Ethernet port
+- 192.168.2.20 Radxa USB Ethernet port (Gateway to OpenWRT subnet)
 
+## VTX Subnet (VPN)
+10.5.0.1 Radxa gs-wfb vpn
+10.5.0.10 VTX drone-wfb vpn
+Setup default gateway to gain access to internet or similar:
+route add default gw 10.5.0.1 wfb-tun
 
+## Firewall rules for radxa to allow access to internet
+sudo iptables -t nat -A POSTROUTING -s 10.5.0.10 -o eth0 -j MASQUERADE
+sudo iptables -A FORWARD -s 10.5.0.10 -o eth0 -j ACCEPT
+sudo iptables -A FORWARD -d 10.5.0.10 -i eth0 -j ACCEPT
 
 
 ### OpenWRT
