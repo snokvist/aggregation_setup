@@ -18,6 +18,8 @@ Setup default gateway to gain access to internet or similar:
 
 route add default gw 10.5.0.1 wfb-tun
 
+Does it need deleting? route del -net 192.168.1.0 netmask 255.255.255.0 dev eth0
+
 ## Firewall rules for radxa to allow access to internet
 sudo iptables -t nat -A POSTROUTING -s 10.5.0.10 -o eth0 -j MASQUERADE
 
