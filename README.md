@@ -4,6 +4,7 @@
 - 192.168.2.20 (OpenWRT Hub to Radxa ethernet. Standard GW)
 - 192.168.2.30 (OpenWRT Hub/Node)
 - 192.168.2.31 (OpenWRT Node)
+- Setup standard GW to 192.168.1.20
 
 # Radxa Subnet: 192.168.1.* / 255.255.255.0
 
