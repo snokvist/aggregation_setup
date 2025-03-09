@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#Make sure the current NICS are loaded before continuing.
+sudo /config/scripts/autoload-wfb-nics.sh
+
 AGGREGATOR_ENABLED=false  # Default value
 
 DVR_PATH=/media
