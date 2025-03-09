@@ -64,8 +64,7 @@ fi
 # Launch the killswitch in the background.
 # The killswitch will run for 10 seconds, and if not killed before then,
 # it will restore the original settings and restart the service.
-# Assumes that killswitch.sh is in the same directory.
-./killswitch.sh "$CURRENT_CHANNEL" "$CURRENT_WIFI_MODE" &
+killswitch.sh "$CURRENT_CHANNEL" "$CURRENT_WIFI_MODE" &
 
 # Output success message with the new settings in one row
 echo "Success: channel set to $CHANNEL, wifi_mode set to $BANDWIDTH"
