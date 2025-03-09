@@ -213,9 +213,25 @@ def main():
     # Update the defaults file with the new values.
     update_defaults(args.channel, args.bandwidth, args.region)
 
-    # Build the command that will be executed on each node.
+    # Build the main command that will be executed on nodes.
     command = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region}"
     logging.info(f"Using command: {command}")
+
+    # If --sync-vtx is requested, run the sync command on host 10.5.0.10 BEFORE processing any nodes.
+    if args.sync_vtx:
+        # Run sync_channel.sh in the background on VTX.
+        # The remote shell is instructed to background the process, echo a marker, then exit.
+        sync_command = (f'nohup /usr/bin/sync_channel.sh {args.channel} {args.bandwidth} {args.region} '
+                        f'> /dev/null 2>&1 & echo "SYNC_STARTED"; exit')
+        logging.info(f"Syncing VTX by running command on 10.5.0.10: {sync_command}")
+        result = run_command("10.5.0.10", sync_command, is_local=False)
+        if result.returncode != 0 or "SYNC_STARTED" not in result.stdout:
+            logging.error(f"Sync VTX command failed on 10.5.0.10 with output: {result.stdout.strip()} and error: {result.stderr.strip()}")
+            logging.error("Restoring default values due to sync failure...")
+            restore_defaults(orig_channel, orig_bandwidth, orig_region)
+            sys.exit(1)
+        else:
+            logging.info(f"Sync VTX command succeeded with output: {result.stdout.strip()}")
 
     # Parse node IP addresses from the configuration file.
     ips = parse_nodes()
@@ -223,26 +239,13 @@ def main():
         logging.error("No nodes to process. Exiting.")
         sys.exit(1)
 
-    # Process local nodes first.
+    # Process local nodes first, then remote nodes.
     local_ips = [ip for ip in ips if ip == "127.0.0.1"]
     remote_ips = [ip for ip in ips if ip != "127.0.0.1"]
 
     success = {}
     errors = {}
 
-    # If --sync-vtx is requested, run the sync command on host 10.5.0.10.
-    if args.sync_vtx:
-        sync_command = f"/usr/bin/sync_channel.sh {args.channel} {args.bandwidth} {args.region}"
-        logging.info(f"Syncing VTX by running command on 10.5.0.10: {sync_command}")
-        result = run_command("10.5.0.10", sync_command, is_local=False)
-        if result.returncode != 0:
-            logging.error(f"Sync VTX command failed on 10.5.0.10 with error: {result.stderr.strip()}")
-            logging.error("Restoring default values due to sync failure...")
-            restore_defaults(orig_channel, orig_bandwidth, orig_region)
-            sys.exit(1)
-        else:
-            logging.info(f"Sync VTX command succeeded: {result.stdout.strip()}")
-    
     try:
         for ip in local_ips:
             if args.handle_local_separately:
@@ -261,7 +264,6 @@ def main():
         cleanup()
         sys.exit(1)
 
-    # Process remote nodes.
     try:
         for ip in remote_ips:
             result = run_command(ip, command, is_local=False)
@@ -275,6 +277,19 @@ def main():
         logging.info("KeyboardInterrupt received. Exiting gracefully...")
         cleanup()
         sys.exit(1)
+
+    # After processing all nodes, if --sync-vtx is requested, connect back to VTX and kill the killswitch.
+    if args.sync_vtx:
+        kill_command = "killall killswitch.sh && echo 'KILLSWITCH_KILLED'; exit"
+        logging.info("Killing killswitch on VTX by running command: " + kill_command)
+        result_kill = run_command("10.5.0.10", kill_command, is_local=False)
+        if result_kill.returncode != 0 or "KILLSWITCH_KILLED" not in result_kill.stdout:
+            logging.error(f"Failed to kill killswitch on VTX. Output: {result_kill.stdout.strip()} Error: {result_kill.stderr.strip()}")
+            logging.error("Restoring default values due to killswitch kill failure...")
+            restore_defaults(orig_channel, orig_bandwidth, orig_region)
+            sys.exit(1)
+        else:
+            logging.info("Successfully killed killswitch on VTX.")
 
     # Print summary.
     print("\n=== Summary ===")
