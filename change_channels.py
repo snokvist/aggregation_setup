@@ -230,6 +230,19 @@ def main():
     success = {}
     errors = {}
 
+    # If --sync-vtx is requested, run the sync command on host 10.5.0.10.
+    if args.sync_vtx:
+        sync_command = f"/usr/bin/sync_channel.sh {args.channel} {args.bandwidth} {args.region}"
+        logging.info(f"Syncing VTX by running command on 10.5.0.10: {sync_command}")
+        result = run_command("10.5.0.10", sync_command, is_local=False)
+        if result.returncode != 0:
+            logging.error(f"Sync VTX command failed on 10.5.0.10 with error: {result.stderr.strip()}")
+            logging.error("Restoring default values due to sync failure...")
+            restore_defaults(orig_channel, orig_bandwidth, orig_region)
+            sys.exit(1)
+        else:
+            logging.info(f"Sync VTX command succeeded: {result.stdout.strip()}")
+    
     try:
         for ip in local_ips:
             if args.handle_local_separately:
@@ -247,19 +260,6 @@ def main():
         logging.info("KeyboardInterrupt received. Exiting gracefully...")
         cleanup()
         sys.exit(1)
-
-    # If --sync-vtx is requested, run the sync command on host 10.5.0.10.
-    if args.sync_vtx:
-        sync_command = f"/usr/bin/sync_channel.sh {args.channel} {args.bandwidth} {args.region}"
-        logging.info(f"Syncing VTX by running command on 10.5.0.10: {sync_command}")
-        result = run_command("10.5.0.10", sync_command, is_local=False)
-        if result.returncode != 0:
-            logging.error(f"Sync VTX command failed on 10.5.0.10 with error: {result.stderr.strip()}")
-            logging.error("Restoring default values due to sync failure...")
-            restore_defaults(orig_channel, orig_bandwidth, orig_region)
-            sys.exit(1)
-        else:
-            logging.info(f"Sync VTX command succeeded: {result.stdout.strip()}")
 
     # Process remote nodes.
     try:
