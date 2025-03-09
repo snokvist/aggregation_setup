@@ -2,6 +2,9 @@
 # Usage: sync_channel.sh <channel> <bandwidth> <region>
 # Note: <region> is accepted but ignored.
 
+# Give the ssh shell some time to exit.
+sleep 0.1
+
 # Check for exactly 3 parameters
 if [ "$#" -ne 3 ]; then
   echo "Usage: $0 <channel> <bandwidth> <region>" >&2
