@@ -1,6 +1,9 @@
 #!/bin/sh
 # Usage: killswitch.sh <original_channel> <original_bandwidth>
 
+# Ensure that errors do not cause the script to exit prematurely.
+set +e
+
 # Check for exactly 2 parameters
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <original_channel> <original_bandwidth>" >&2
@@ -27,23 +30,14 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Stop the wireless broadcast service
-/etc/init.d/S98wifibroadcast stop 2>/dev/null
-if [ $? -ne 0 ]; then
-  echo "KillSwitch Error: Failed to stop S98wifibroadcast service" >&2
-  #exit 1
-fi
+# Attempt to stop the wireless broadcast service.
+# Even if this fails, log the error and continue.
+/etc/init.d/S98wifibroadcast stop 2>/dev/null || echo "KillSwitch Warning: Failed to stop S98wifibroadcast service" >&2
 
-# Start the wireless broadcast service with retry logic:
-# First attempt
-/etc/init.d/S98wifibroadcast start 2>/dev/null
-if [ $? -ne 0 ]; then
+# Attempt to start the wireless broadcast service with retry logic.
+if ! /etc/init.d/S98wifibroadcast start 2>/dev/null; then
   sleep 2
-  /etc/init.d/S98wifibroadcast start 2>/dev/null
-  if [ $? -ne 0 ]; then
-    echo "KillSwitch Error: Failed to start S98wifibroadcast service after retry" >&2
-    #exit 1
-  fi
+  /etc/init.d/S98wifibroadcast start 2>/dev/null || echo "KillSwitch Warning: Failed to start S98wifibroadcast service after retry" >&2
 fi
 
 echo "KillSwitch: Restored original settings: channel set to $ORIGINAL_CHANNEL, wifi_mode set to $ORIGINAL_BANDWIDTH"
