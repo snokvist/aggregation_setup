@@ -33,11 +33,6 @@ fi
 # Attempt to stop the wireless broadcast service.
 if ! /etc/init.d/S98wifibroadcast stop 2>/dev/null; then
   echo "KillSwitch Warning: Failed to stop S98wifibroadcast service" >&2
-  # Set fallback values for channel and wifi_mode
-  yaml-cli -i /etc/wfb.yaml -s .wireless.channel "165" 2>/dev/null || echo "KillSwitch Warning: Failed to set fallback channel" >&2
-  yaml-cli -i /etc/wfb.yaml -s .wireless.wifi_mode "HT20" 2>/dev/null || echo "KillSwitch Warning: Failed to set fallback wifi_mode" >&2
-  # Reissue the stop command (ignore errors)
-  /etc/init.d/S98wifibroadcast stop 2>/dev/null || echo "KillSwitch Warning: Failed to stop S98wifibroadcast service on fallback" >&2
 fi
 
 # Attempt to start the wireless broadcast service with retry logic.
