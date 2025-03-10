@@ -29,7 +29,7 @@ echo "  DEFAULT_SERVER_IP=${SERVER_IP}"
 sed -i "s/^DEFAULT_CHANNEL=.*/DEFAULT_CHANNEL=${CHANNEL}/" /usr/sbin/wfb-ng.sh
 sed -i "s/^DEFAULT_BANDWIDTH=.*/DEFAULT_BANDWIDTH=\"${BANDWIDTH}\"/" /usr/sbin/wfb-ng.sh
 sed -i "s/^DEFAULT_REGION=.*/DEFAULT_REGION=\"${REGION}\"/" /usr/sbin/wfb-ng.sh
-sed -i "s/^DEFAULT_SERVER_IP=.*/SERVER_IP=\"${SERVER_IP}\"/" /usr/sbin/wfb-ng.sh
+sed -i "s/^DEFAULT_SERVER_IP=.*/DEFAULT_SERVER_IP=\"${SERVER_IP}\"/" /usr/sbin/wfb-ng.sh
 
 echo "Defaults updated successfully."
 
