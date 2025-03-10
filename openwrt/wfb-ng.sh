@@ -19,21 +19,25 @@ trap _cleanup EXIT
 DEFAULT_CHANNEL=165
 DEFAULT_BANDWIDTH="HT20"
 DEFAULT_REGION="US"
+DEFAULT_SERVER_IP="192.168.1.20"
 
 # If all three arguments are provided, override defaults
-if [ $# -eq 3 ]; then
+if [ $# -eq 4 ]; then
   CHANNEL=$1
   BANDWIDTH=$2
   REGION=$3
+  SERVER_IP=$4
 else
   CHANNEL=$DEFAULT_CHANNEL
   BANDWIDTH=$DEFAULT_BANDWIDTH
   REGION=$DEFAULT_REGION
+  SERVER_IP=$DEFAULT_SERVER_IP
 fi
 
 echo "Using channel: $CHANNEL"
 echo "Using bandwidth: $BANDWIDTH"
 echo "Using region: $REGION"
+echo "Using server ip: $SERVER_IP"
 
 # Set wireless region
 iw reg set "$REGION"
@@ -65,10 +69,10 @@ for wlan in "${WLAN_INTERFACES[@]}"; do
 done
 
 # gs_video
-wfb_rx -f -c 192.168.1.20 -u 10000 -p 0 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
+wfb_rx -f -c $SERVER_IP -u 10000 -p 0 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
 
 # gs_tunnel
-wfb_rx -f -c 192.168.1.20 -u 10001 -p 32 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
+wfb_rx -f -c $SERVER_IP -u 10001 -p 32 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
 wfb_tx -I 11001 -R 2097152 "${WLAN_INTERFACES[@]}" &
 
 echo "WFB-ng init done"
