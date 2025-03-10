@@ -40,5 +40,8 @@ if ! /etc/init.d/S98wifibroadcast start 2>/dev/null; then
   /etc/init.d/S98wifibroadcast start 2>/dev/null || echo "KillSwitch Warning: Failed to start S98wifibroadcast service after retry" >&2
 fi
 
+# Restart majestic service in case it died.
+/etc/init.d/S95majestic restart
+
 echo "KillSwitch: Restored original settings: channel set to $ORIGINAL_CHANNEL, wifi_mode set to $ORIGINAL_BANDWIDTH"
 exit 0
