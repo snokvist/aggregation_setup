@@ -31,7 +31,7 @@ echo "Defaults updated successfully."
 
 # Restart the wfb-cluster-node service
 echo "Restarting wfb-cluster-node service..."
-if ! systemctl restart wfb-cluster-node; then
+if ! /etc/init.d/wfb-ng restart; then
   echo "Failed to restart wfb-cluster-node service."
   exit 1
 fi
