@@ -1,7 +1,7 @@
 #!/bin/sh
 # Usage: sync_channel.sh <channel> <bandwidth> <region>
 # Note: <region> is accepted but ignored.
-
+set +e
 # Give the ssh shell some time to exit.
 sleep 0.1
 
