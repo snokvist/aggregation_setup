@@ -64,6 +64,9 @@ if [ $? -ne 0 ]; then
   fi
 fi
 
+# Restart the majestic service in case it died
+/etc/init.d/S95majestic restart
+
 # Launch the killswitch in the background.
 # The killswitch will run for 10 seconds, and if not killed before then,
 # it will restore the original settings and restart the service.
