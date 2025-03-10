@@ -48,14 +48,6 @@ fi
 /etc/init.d/S98wifibroadcast stop 2>/dev/null
 if [ $? -ne 0 ]; then
   echo "Error: Failed to stop S98wifibroadcast service" >&2
-  # Reapply the new settings to YAML
-  yaml-cli -i /etc/wfb.yaml -s .wireless.channel "$CHANNEL" 2>/dev/null
-  yaml-cli -i /etc/wfb.yaml -s .wireless.wifi_mode "$BANDWIDTH" 2>/dev/null
-  # Attempt to start the wireless broadcast service
-  /etc/init.d/S98wifibroadcast start 2>/dev/null
-  # Also restart the majestic service
-  /etc/init.d/S95majestic restart 2>/dev/null
-  exit 1
 fi
 
 # Start the wireless broadcast service with retry logic:
