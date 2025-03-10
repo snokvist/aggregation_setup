@@ -13,7 +13,7 @@ fi
 ORIGINAL_CHANNEL="$1"
 ORIGINAL_BANDWIDTH="$2"
 
-# Wait for 10 seconds before reverting (acts as the kill switch timeout)
+# Wait for 15 seconds before reverting (acts as the kill switch timeout)
 sleep 15
 
 # Restore the original channel value
@@ -31,8 +31,14 @@ if [ $? -ne 0 ]; then
 fi
 
 # Attempt to stop the wireless broadcast service.
-# Even if this fails, log the error and continue.
-/etc/init.d/S98wifibroadcast stop 2>/dev/null || echo "KillSwitch Warning: Failed to stop S98wifibroadcast service" >&2
+if ! /etc/init.d/S98wifibroadcast stop 2>/dev/null; then
+  echo "KillSwitch Warning: Failed to stop S98wifibroadcast service" >&2
+  # Set fallback values for channel and wifi_mode
+  yaml-cli -i /etc/wfb.yaml -s .wireless.channel "165" 2>/dev/null || echo "KillSwitch Warning: Failed to set fallback channel" >&2
+  yaml-cli -i /etc/wfb.yaml -s .wireless.wifi_mode "HT20" 2>/dev/null || echo "KillSwitch Warning: Failed to set fallback wifi_mode" >&2
+  # Reissue the stop command (ignore errors)
+  /etc/init.d/S98wifibroadcast stop 2>/dev/null || echo "KillSwitch Warning: Failed to stop S98wifibroadcast service on fallback" >&2
+fi
 
 # Attempt to start the wireless broadcast service with retry logic.
 if ! /etc/init.d/S98wifibroadcast start 2>/dev/null; then
