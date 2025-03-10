@@ -69,10 +69,10 @@ for wlan in "${WLAN_INTERFACES[@]}"; do
 done
 
 # gs_video
-wfb_rx -f -c $SERVER_IP -u 10000 -p 0 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
+wfb_rx -f -c "$SERVER_IP" -u 10000 -p 0 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
 
 # gs_tunnel
-wfb_rx -f -c $SERVER_IP -u 10001 -p 32 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
+wfb_rx -f -c "$SERVER_IP" -u 10001 -p 32 -i 7669206 -R 2097152 "${WLAN_INTERFACES[@]}" &
 wfb_tx -I 11001 -R 2097152 "${WLAN_INTERFACES[@]}" &
 
 echo "WFB-ng init done"
