@@ -95,6 +95,24 @@ def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=DEFAULT
     logging.info("Restored default values successfully.")
     return True
 
+def get_server_address(filename=CONFIG_FILE):
+    """
+    Extract the server_address value from the config file.
+    Expects a line like: server_address = '192.169.1.49'
+    """
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        logging.error(f"Failed to read {filename} for server_address: {e}")
+        sys.exit(1)
+
+    match = re.search(r'^\s*server_address\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.MULTILINE)
+    if not match:
+        logging.error("Failed to extract server_address from the config file.")
+        sys.exit(1)
+    return match.group(1)
+
 def extract_nodes_block(content):
     """
     Extract the entire nodes block from the config file.
@@ -214,8 +232,13 @@ def main():
     update_defaults(args.channel, args.bandwidth, args.region)
 
     # Build the main command that will be executed on nodes.
-    command = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region}"
-    logging.info(f"Using command: {command}")
+    # For local nodes, no server_address is added.
+    command_local = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region}"
+    # For remote nodes, we extract server_address from the config file and pass it as an extra argument.
+    server_address = get_server_address()
+    command_remote = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region} {server_address}"
+    logging.info(f"Local command: {command_local}")
+    logging.info(f"Remote command: {command_remote}")
 
     # If --sync-vtx is requested, run the sync command on host 10.5.0.10 BEFORE processing any nodes.
     if args.sync_vtx:
@@ -246,13 +269,14 @@ def main():
     success = {}
     errors = {}
 
+    # Process local nodes.
     try:
         for ip in local_ips:
             if args.handle_local_separately:
                 logging.info("Handling local node (127.0.0.1) with special logic.")
             else:
                 logging.info("Handling local node (127.0.0.1) as part of the loop.")
-            result = run_command(ip, command, is_local=True)
+            result = run_command(ip, command_local, is_local=True)
             if result.returncode == 0:
                 success[ip] = result.stdout.strip()
                 logging.info(f"Command on {ip} succeeded: {result.stdout.strip()}")
@@ -264,9 +288,10 @@ def main():
         cleanup()
         sys.exit(1)
 
+    # Process remote nodes.
     try:
         for ip in remote_ips:
-            result = run_command(ip, command, is_local=False)
+            result = run_command(ip, command_remote, is_local=False)
             if result.returncode == 0:
                 success[ip] = result.stdout.strip()
                 logging.info(f"Command on {ip} succeeded: {result.stdout.strip()}")
