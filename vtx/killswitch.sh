@@ -32,16 +32,16 @@ fi
 
 # Attempt to stop the wireless broadcast service.
 /etc/init.d/S98wifibroadcast stop 2>/dev/null
+/etc/init.d/S98wifibroadcast stop 2>/dev/null
 
+# Restart majestic service in case it died.
+/etc/init.d/S95majestic restart
 
 # Attempt to start the wireless broadcast service with retry logic.
 if ! /etc/init.d/S98wifibroadcast start 2>/dev/null; then
   sleep 2
   /etc/init.d/S98wifibroadcast start 2>/dev/null || echo "KillSwitch Warning: Failed to start S98wifibroadcast service after retry" >&2
 fi
-
-# Restart majestic service in case it died.
-/etc/init.d/S95majestic restart
 
 echo "KillSwitch: Restored original settings: channel set to $ORIGINAL_CHANNEL, wifi_mode set to $ORIGINAL_BANDWIDTH"
 exit 0
