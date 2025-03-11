@@ -15,10 +15,10 @@ CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"  # command to run on nodes
 SSH_TIMEOUT = 5       # general SSH timeout in seconds
 
 # Timeout for killing the killswitch (separate from SSH_TIMEOUT)
-KILLSWITCH_TIMEOUT = 5  # seconds
+KILLSWITCH_TIMEOUT = 10  # seconds
 
 # Delay before attempting to kill the killswitch, to allow link establishment
-KILLSWITCH_DELAY = 5    # seconds
+KILLSWITCH_DELAY = 10    # seconds
 
 # Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
