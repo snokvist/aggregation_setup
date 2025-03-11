@@ -19,8 +19,8 @@ KILLSWITCH_DELAY = 10  # seconds to wait before attempting to kill killswitch
 KILLSWITCH_TIMEOUT = 10  # seconds for the killall killswitch command timeout
 
 # New dedicated constants for find mode:
-VTX_FIND_DELAY = 10   # seconds to wait after setting channel in find mode
-VTX_FIND_TIMEOUT = 5  # seconds timeout for test command in find mode
+VTX_FIND_DELAY = 3   # seconds to wait after setting channel in find mode
+VTX_FIND_TIMEOUT = 1  # seconds timeout for test command in find mode
 
 # Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
