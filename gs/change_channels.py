@@ -11,9 +11,9 @@ import signal
 CONFIG_FILE = "/etc/wifibroadcast.cfg"
 DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"  # file holding default values to update/restore
 CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"  # command to run on nodes
-SSH_TIMEOUT = 5  # seconds
+SSH_TIMEOUT = 10  # seconds
 
-# Approved channel combinations (easily changed here)
+# Approved channel combinations
 APPROVED_CHANNELS = {
     "HT20": [140, 161, 165],
     "HT40+": [161],
@@ -31,7 +31,6 @@ def read_defaults(filename=DEFAULTS_FILE):
     """
     Read and return the current default values from the given file.
     Returns a tuple (default_channel, default_bandwidth, default_region).
-    The regexes allow for optional leading whitespace.
     """
     try:
         with open(filename, 'r') as f:
@@ -39,15 +38,12 @@ def read_defaults(filename=DEFAULTS_FILE):
     except Exception as e:
         logging.error(f"Failed to read {filename}: {e}")
         sys.exit(1)
-
     channel_match = re.search(r'^\s*DEFAULT_CHANNEL\s*=\s*(\S+)', content, re.MULTILINE)
     bandwidth_match = re.search(r'^\s*DEFAULT_BANDWIDTH\s*=\s*"?([^"\n]+)"?', content, re.MULTILINE)
     region_match = re.search(r'^\s*DEFAULT_REGION\s*=\s*"?([^"\n]+)"?', content, re.MULTILINE)
-
     if not (channel_match and bandwidth_match and region_match):
         logging.error("Failed to extract default values from the script file.")
         sys.exit(1)
-
     return channel_match.group(1), bandwidth_match.group(1), region_match.group(1)
 
 def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
@@ -60,7 +56,6 @@ def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FI
     except Exception as e:
         logging.error(f"Failed to read {filename} for update: {e}")
         sys.exit(1)
-
     content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_CHANNEL\s*=\s*).*$',
                          r'\g<prefix>' + str(new_channel),
                          content, flags=re.MULTILINE)
@@ -80,7 +75,7 @@ def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FI
 
 def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
     """
-    Restore the default values in the given file to the given settings.
+    Restore the default values in the given file to the specified settings.
     (This function is used both for normal restore and for predetermined restore.)
     """
     try:
@@ -89,7 +84,6 @@ def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_F
     except Exception as e:
         logging.error(f"Failed to read {filename} for restore: {e}")
         return False
-
     content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_CHANNEL\s*=\s*).*$',
                          r'\g<prefix>' + str(new_channel),
                          content, flags=re.MULTILINE)
@@ -105,7 +99,6 @@ def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_F
     except Exception as e:
         logging.error(f"Failed to write restored defaults to {filename}: {e}")
         return False
-
     logging.info("Restored default values successfully.")
     return True
 
@@ -120,7 +113,6 @@ def get_server_address(filename=CONFIG_FILE):
     except Exception as e:
         logging.error(f"Failed to read {filename} for server_address: {e}")
         sys.exit(1)
-
     match = re.search(r'^\s*server_address\s*=\s*[\'"]([^\'"]+)[\'"]', content, re.MULTILINE)
     if not match:
         logging.error("Failed to extract server_address from the config file.")
@@ -130,15 +122,12 @@ def get_server_address(filename=CONFIG_FILE):
 def extract_nodes_block(content):
     """
     Extract the entire nodes block from the config file.
-    It finds the line where 'nodes = {' starts and then uses brace counting
-    to return everything inside the outermost { }.
     """
     match = re.search(r'nodes\s*=\s*\{', content)
     if not match:
         logging.error("Could not find 'nodes' block in config file.")
         sys.exit(1)
-    
-    start_index = match.end()  # position just after the opening '{'
+    start_index = match.end()
     brace_count = 1
     i = start_index
     while i < len(content) and brace_count > 0:
@@ -147,18 +136,14 @@ def extract_nodes_block(content):
         elif content[i] == '}':
             brace_count -= 1
         i += 1
-
     if brace_count != 0:
         logging.error("Braces in 'nodes' block are not balanced.")
         sys.exit(1)
-    
     return content[start_index:i-1]
 
 def parse_nodes(filename=CONFIG_FILE):
     """
     Parse the config file to extract node IP addresses from the nodes keys.
-    This function extracts the nodes block and uses a regex that matches
-    quoted IP addresses immediately followed by a colon.
     """
     try:
         with open(filename, 'r') as f:
@@ -166,7 +151,6 @@ def parse_nodes(filename=CONFIG_FILE):
     except Exception as e:
         logging.error(f"Failed to read config file {filename}: {e}")
         sys.exit(1)
-
     nodes_block = extract_nodes_block(content)
     ips = re.findall(r"['\"]((?:\d{1,3}\.){3}\d{1,3})['\"]\s*:", nodes_block)
     if not ips:
@@ -178,8 +162,6 @@ def parse_nodes(filename=CONFIG_FILE):
 def run_command(ip, command, is_local=False):
     """
     Run the given command either locally or remotely (via SSH).
-    For remote commands, a timeout is applied and if exceeded the entire
-    process group is killed.
     Returns a subprocess.CompletedProcess instance.
     """
     try:
@@ -194,7 +176,6 @@ def run_command(ip, command, is_local=False):
             proc = subprocess.Popen(ssh_command, shell=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     text=True, preexec_fn=os.setsid)
-        
         try:
             stdout, stderr = proc.communicate(timeout=SSH_TIMEOUT)
             return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
@@ -214,20 +195,15 @@ def run_command(ip, command, is_local=False):
         return subprocess.CompletedProcess(command, 1, "", str(e))
 
 def cleanup():
-    """
-    Cleanup actions on exit (for example, closing connections, removing temporary files, etc.)
-    """
     logging.info("Performing cleanup actions...")
 
 # --- Main Program ---
 
 def main():
-    # Require running as root.
     if os.geteuid() != 0:
         logging.error("This program must be run as root.")
         sys.exit(1)
 
-    # Parse command-line arguments.
     parser = argparse.ArgumentParser(
         description="Script to change the wireless channel on nodes based on /etc/wifibroadcast.cfg"
     )
@@ -235,7 +211,7 @@ def main():
     parser.add_argument("bandwidth", type=str, help="Bandwidth to set (e.g., HT20, HT40+, HT40-)")
     parser.add_argument("region", type=str, help="Region to set")
     parser.add_argument("--handle-local-separately", action="store_true",
-                        help="If set, handle 127.0.0.1 (local node) with special logic")
+                        help="If set, handle 127.0.0.1 with special logic")
     parser.add_argument("--sync-vtx", action="store_true",
                         help="If set, sync VTX by sending '/usr/bin/sync_channel.sh <channel> <bandwidth> <region>' to root@10.5.0.10")
     args = parser.parse_args()
@@ -249,26 +225,22 @@ def main():
             print(f"  {bw}: {', '.join(str(ch) for ch in ch_list)}")
         sys.exit(1)
 
-    # Read original default values from the defaults file.
+    # Read original default values.
     orig_channel, orig_bandwidth, orig_region = read_defaults()
     logging.info(f"Original defaults: CHANNEL={orig_channel}, BANDWIDTH={orig_bandwidth}, REGION={orig_region}")
 
-    # Update the defaults file with the new values.
+    # Update defaults file with new values.
     update_defaults(args.channel, args.bandwidth, args.region)
 
-    # Build the command that will be executed on nodes.
-    # For local nodes, no server_address is added.
+    # Build command strings.
     command_local = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region}"
-    # For remote nodes, extract server_address from the config file and pass it as an extra argument.
     server_address = get_server_address()
     command_remote = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region} {server_address}"
     logging.info(f"Local command: {command_local}")
     logging.info(f"Remote command: {command_remote}")
 
-    # If --sync-vtx is requested, run the sync command on host 10.5.0.10 BEFORE processing any nodes.
+    # Sync VTX if requested.
     if args.sync_vtx:
-        # Run sync_channel.sh in the background on VTX.
-        # The remote shell is instructed to background the process, echo a marker, then exit.
         sync_command = (f'nohup /usr/bin/sync_channel.sh {args.channel} {args.bandwidth} {args.region} '
                         f'> /dev/null 2>&1 & echo "SYNC_STARTED"; exit')
         logging.info(f"Syncing VTX by running command on 10.5.0.10: {sync_command}")
@@ -281,13 +253,11 @@ def main():
         else:
             logging.info(f"Sync VTX command succeeded with output: {result.stdout.strip()}")
 
-    # Parse node IP addresses from the configuration file.
+    # Parse node IP addresses.
     ips = parse_nodes()
     if not ips:
         logging.error("No nodes to process. Exiting.")
         sys.exit(1)
-
-    # Process local nodes first, then remote nodes.
     local_ips = [ip for ip in ips if ip == "127.0.0.1"]
     remote_ips = [ip for ip in ips if ip != "127.0.0.1"]
 
@@ -328,7 +298,7 @@ def main():
         cleanup()
         sys.exit(1)
 
-    # After processing all nodes, if --sync-vtx is requested, connect back to VTX and kill the killswitch.
+    # After processing all nodes, if --sync-vtx is requested, kill the killswitch.
     if args.sync_vtx:
         kill_command = "killall killswitch.sh && echo 'KILLSWITCH_KILLED'; exit"
         logging.info("Killing killswitch on VTX by running command: " + kill_command)
@@ -337,8 +307,17 @@ def main():
             logging.error(f"Failed to kill killswitch on VTX. Output: {result_kill.stdout.strip()} Error: {result_kill.stderr.strip()}")
             logging.error("Restoring predetermined settings due to killswitch kill failure...")
 
-            # Instead of restoring the original defaults, restore to predetermined settings.
+            # Restore predetermined settings locally.
             restore_defaults(RESTORE_CHANNEL, RESTORE_BANDWIDTH, RESTORE_REGION)
+            local_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION}"
+            logging.info(f"Restoring settings on local node 127.0.0.1 with command: {local_restore_command}")
+            result_local_restore = run_command("127.0.0.1", local_restore_command, is_local=True)
+            if result_local_restore.returncode != 0:
+                logging.error(f"Failed to restore settings on local node 127.0.0.1: {result_local_restore.stderr.strip()}")
+            else:
+                logging.info(f"Settings restored on local node 127.0.0.1: {result_local_restore.stdout.strip()}")
+
+            # Restore predetermined settings on remote nodes.
             remote_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION} {server_address}"
             for ip in remote_ips:
                 logging.info(f"Restoring settings on remote node {ip} with command: {remote_restore_command}")
@@ -359,7 +338,6 @@ def main():
             print(f"  {ip}: {out}")
     else:
         print("  None")
-
     print("\nErrors:")
     if errors:
         for ip, err in errors.items():
