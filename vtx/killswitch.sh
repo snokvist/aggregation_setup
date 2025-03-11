@@ -31,9 +31,8 @@ if [ $? -ne 0 ]; then
 fi
 
 # Attempt to stop the wireless broadcast service.
-if ! /etc/init.d/S98wifibroadcast stop 2>/dev/null; then
-  echo "KillSwitch Warning: Failed to stop S98wifibroadcast service" >&2
-fi
+/etc/init.d/S98wifibroadcast stop 2>/dev/null
+
 
 # Attempt to start the wireless broadcast service with retry logic.
 if ! /etc/init.d/S98wifibroadcast start 2>/dev/null; then
