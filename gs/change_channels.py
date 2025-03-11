@@ -30,7 +30,7 @@ APPROVED_CHANNELS = {
 # Predetermined restore settings (used if killswitch cancellation fails)
 RESTORE_CHANNEL = 165
 RESTORE_BANDWIDTH = "HT20"
-RESTORE_REGION = "00"
+RESTORE_REGION = "US"
 
 # --- Utility Functions ---
 
