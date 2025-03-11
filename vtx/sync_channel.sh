@@ -34,23 +34,16 @@ if [ $? -ne 0 ]; then
 fi
 
 # Stop the wireless broadcast service
-/etc/init.d/S98wifibroadcast stop 2>/dev/null
-/etc/init.d/S98wifibroadcast stop 2>/dev/null
+/etc/init.d/S98wifibroadcast stop
+sleep 2
+/etc/init.d/S98wifibroadcast stop
 
 # Restart the majestic service in case it died
 /etc/init.d/S95majestic restart
 
 # Start the wireless broadcast service with retry logic:
 # First attempt
-/etc/init.d/S98wifibroadcast start 2>/dev/null
-if [ $? -ne 0 ]; then
-  sleep 2
-  /etc/init.d/S98wifibroadcast start 2>/dev/null
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to start S98wifibroadcast service after retry" >&2
-    # (Optional: you might add fallback logic here as well)
-  fi
-fi
+/etc/init.d/S98wifibroadcast start
 
 # Output success message with the new settings in one row
 echo "Success: channel set to $CHANNEL, wifi_mode set to $BANDWIDTH"
