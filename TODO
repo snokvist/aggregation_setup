@@ -7,3 +7,13 @@ change the vtx scripts to not chnage config gile parameters directly. only chang
 
 
 
+Also, we want to add a --local-only optional mode, which will use the logic to SSH commands to 10.5.0.1 like now,,but instead of fetching the local and remote ip's to be looped through, there should just be a special local command logic to be looped through on the local machine which will be different: (The main difference is we are not using ssh to issue the command to restart the service, and we are not changing parameters in /usr/sbin/wfb-ng.sh, instead we are changing them in /etc/wifibroadcast.cfg:but for numbers its not needed. And there may be other sections with the same parameters name so we need to find specifically [common] and [gs_video] to change.
+Note, for strings we need to use '' 
+
+[common]
+wifi_channel = 165
+wifi_region = 'BO' 
+
+[gs_video]
+bandwidth = 20
+systemctl restart wifibroadcast@gs
