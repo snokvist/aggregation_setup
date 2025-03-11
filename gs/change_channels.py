@@ -6,14 +6,21 @@ import logging
 import sys
 import os
 import signal
+import time
 
 # --- Configuration Constants ---
 CONFIG_FILE = "/etc/wifibroadcast.cfg"
-DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"  # file holding default values to update/restore
+DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"       # file holding default values to update/restore
 CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"  # command to run on nodes
-SSH_TIMEOUT = 10  # seconds
+SSH_TIMEOUT = 5       # general SSH timeout in seconds
 
-# Approved channel combinations
+# Timeout for killing the killswitch (separate from SSH_TIMEOUT)
+KILLSWITCH_TIMEOUT = 5  # seconds
+
+# Delay before attempting to kill the killswitch, to allow link establishment
+KILLSWITCH_DELAY = 5    # seconds
+
+# Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
     "HT20": [140, 161, 165],
     "HT40+": [161],
@@ -76,7 +83,7 @@ def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FI
 def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
     """
     Restore the default values in the given file to the specified settings.
-    (This function is used both for normal restore and for predetermined restore.)
+    (Used both for normal restore and for predetermined restore.)
     """
     try:
         with open(filename, 'r') as f:
@@ -159,9 +166,10 @@ def parse_nodes(filename=CONFIG_FILE):
         logging.info(f"Found IP addresses: {ips}")
     return ips
 
-def run_command(ip, command, is_local=False):
+def run_command(ip, command, is_local=False, timeout=SSH_TIMEOUT):
     """
     Run the given command either locally or remotely (via SSH).
+    The timeout parameter defaults to SSH_TIMEOUT but can be overridden.
     Returns a subprocess.CompletedProcess instance.
     """
     try:
@@ -177,10 +185,10 @@ def run_command(ip, command, is_local=False):
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     text=True, preexec_fn=os.setsid)
         try:
-            stdout, stderr = proc.communicate(timeout=SSH_TIMEOUT)
+            stdout, stderr = proc.communicate(timeout=timeout)
             return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
         except subprocess.TimeoutExpired:
-            logging.error(f"Command on {ip} timed out after {SSH_TIMEOUT} seconds.")
+            logging.error(f"Command on {ip} timed out after {timeout} seconds.")
             if not is_local:
                 try:
                     os.killpg(proc.pid, signal.SIGTERM)
@@ -189,7 +197,7 @@ def run_command(ip, command, is_local=False):
                     logging.error(f"Failed to kill process group for command on {ip}: {kill_exception}")
             proc.kill()
             stdout, stderr = proc.communicate()
-            return subprocess.CompletedProcess(proc.args, 1, stdout, f"Timeout after {SSH_TIMEOUT} seconds: {stderr}")
+            return subprocess.CompletedProcess(proc.args, 1, stdout, f"Timeout after {timeout} seconds: {stderr}")
     except Exception as e:
         logging.error(f"Error running command on {ip}: {e}")
         return subprocess.CompletedProcess(command, 1, "", str(e))
@@ -298,11 +306,13 @@ def main():
         cleanup()
         sys.exit(1)
 
-    # After processing all nodes, if --sync-vtx is requested, kill the killswitch.
+    # After processing nodes, if --sync-vtx is requested, wait before killing the killswitch.
     if args.sync_vtx:
+        logging.info(f"Waiting for {KILLSWITCH_DELAY} seconds to allow channel to establish...")
+        time.sleep(KILLSWITCH_DELAY)
         kill_command = "killall killswitch.sh && echo 'KILLSWITCH_KILLED'; exit"
         logging.info("Killing killswitch on VTX by running command: " + kill_command)
-        result_kill = run_command("10.5.0.10", kill_command, is_local=False)
+        result_kill = run_command("10.5.0.10", kill_command, is_local=False, timeout=KILLSWITCH_TIMEOUT)
         if result_kill.returncode != 0 or "KILLSWITCH_KILLED" not in result_kill.stdout:
             logging.error(f"Failed to kill killswitch on VTX. Output: {result_kill.stdout.strip()} Error: {result_kill.stderr.strip()}")
             logging.error("Restoring predetermined settings due to killswitch kill failure...")
