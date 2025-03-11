@@ -3,7 +3,7 @@ Add killswitch right at the start of sync_channels.sh to make sur eits always ex
 
 add an approved channels list for 20/40mhz in groundstation script
 
-change the vtx scripts
+change the vtx scripts to not chnage config gile parameters directly. only change them on succesfull reconnect.
 
 
 
