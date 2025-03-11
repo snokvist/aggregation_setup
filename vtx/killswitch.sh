@@ -2,7 +2,7 @@
 # Usage: killswitch.sh <original_channel> <original_bandwidth>
 
 # Ensure that errors do not cause the script to exit prematurely.
-set +e
+#set +e
 
 # Check for exactly 2 parameters
 if [ "$#" -ne 2 ]; then
