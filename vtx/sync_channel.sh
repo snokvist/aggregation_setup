@@ -27,7 +27,6 @@ APPROVED_CHANNELS = {
     "HT40+": [40,48,140,149,157,161],
     "HT20": [36,40,44,48,140,149,153,157,161,165]
 }
-}
 
 # Predetermined restore settings (used if killswitch cancellation fails)
 RESTORE_CHANNEL = 165
