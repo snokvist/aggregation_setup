@@ -19,13 +19,14 @@ KILLSWITCH_DELAY = 10  # seconds to wait before attempting to kill killswitch
 KILLSWITCH_TIMEOUT = 10  # seconds for the killall killswitch command timeout
 
 # New dedicated constants for find mode:
-VTX_FIND_DELAY = 3   # seconds to wait after setting channel in find mode
-VTX_FIND_TIMEOUT = 1  # seconds timeout for test command in find mode
+VTX_FIND_DELAY = 10   # seconds to wait after setting channel in find mode
+VTX_FIND_TIMEOUT = 5  # seconds timeout for test command in find mode
 
 # Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
-    "HT20": [140, 161, 165],
-    "HT40+": [140, 161]
+    "HT40+": [40,48,140,149,157,161],
+    "HT20": [36,40,44,48,140,149,153,157,161,165]
+}
 }
 
 # Predetermined restore settings (used if killswitch cancellation fails)
@@ -195,7 +196,7 @@ def find_vtx_mode():
     """
     server_address = get_server_address()
     # We'll use the order: HT20, then HT40+, then HT40-
-    for bandwidth in ["HT40+", "HT40-", "HT20"]:
+    for bandwidth in ["HT40+", "HT20"]:
         if bandwidth not in APPROVED_CHANNELS:
             continue
         for channel in APPROVED_CHANNELS[bandwidth]:
