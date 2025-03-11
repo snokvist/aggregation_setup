@@ -1,0 +1,9 @@
+Add killswitch right at the start of sync_channels.sh to make sur eits always executed.
+
+
+add an approved channels list for 20/40mhz in groundstation script
+
+change the vtx scripts
+
+
+
