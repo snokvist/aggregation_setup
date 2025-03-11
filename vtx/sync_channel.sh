@@ -24,8 +24,8 @@ VTX_FIND_TIMEOUT = 5  # seconds timeout for test command in find mode
 
 # Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
-    "HT40+": [40,48,140,149,157,161],
-    "HT20": [36,40,44,48,140,149,153,157,161,165]
+    "HT40+": [161,157,149,140,48,40],
+    "HT20": [165,161,157,153,149,140,48,44,40,36]
 }
 
 # Predetermined restore settings (used if killswitch cancellation fails)
