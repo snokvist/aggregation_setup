@@ -35,9 +35,6 @@ fi
 
 # Stop the wireless broadcast service
 /etc/init.d/S98wifibroadcast stop 2>/dev/null
-if [ $? -ne 0 ]; then
-  echo "Error: Failed to stop S98wifibroadcast service" >&2
-fi
 
 # Start the wireless broadcast service with retry logic:
 # First attempt
