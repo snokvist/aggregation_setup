@@ -1,7 +1,7 @@
 #!/bin/sh
 # Usage: sync_channel.sh <channel> <bandwidth> <region>
 # Note: <region> is accepted but ignored.
-set +e
+#set +e
 
 # Launch the killswitch in the background.
 # The killswitch will run for XX seconds, and if not killed before then,
