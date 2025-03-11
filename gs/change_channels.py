@@ -7,12 +7,25 @@ import sys
 import os
 import signal
 
+# --- Configuration Constants ---
 CONFIG_FILE = "/etc/wifibroadcast.cfg"
-# The file that holds default values (to be updated and restored if needed)
-DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"
-# The command file that is executed on nodes
-CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"
+DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"  # file holding default values to update/restore
+CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"  # command to run on nodes
 SSH_TIMEOUT = 5  # seconds
+
+# Approved channel combinations (easily changed here)
+APPROVED_CHANNELS = {
+    "HT20": [140, 161, 165],
+    "HT40+": [161],
+    "HT40-": [161]
+}
+
+# Predetermined restore settings (used if killswitch cancellation fails)
+RESTORE_CHANNEL = 165
+RESTORE_BANDWIDTH = "HT20"
+RESTORE_REGION = "00"
+
+# --- Utility Functions ---
 
 def read_defaults(filename=DEFAULTS_FILE):
     """
@@ -65,9 +78,10 @@ def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FI
         sys.exit(1)
     logging.info("Default values updated successfully.")
 
-def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=DEFAULTS_FILE):
+def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
     """
-    Restore the default values in the given file to the original values.
+    Restore the default values in the given file to the given settings.
+    (This function is used both for normal restore and for predetermined restore.)
     """
     try:
         with open(filename, 'r') as f:
@@ -77,13 +91,13 @@ def restore_defaults(orig_channel, orig_bandwidth, orig_region, filename=DEFAULT
         return False
 
     content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_CHANNEL\s*=\s*).*$',
-                         r'\g<prefix>' + str(orig_channel),
+                         r'\g<prefix>' + str(new_channel),
                          content, flags=re.MULTILINE)
     content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_BANDWIDTH\s*=\s*).*$',
-                         r'\g<prefix>"' + orig_bandwidth + '"',
+                         r'\g<prefix>"' + new_bandwidth + '"',
                          content_new, flags=re.MULTILINE)
     content_new = re.sub(r'^(?P<prefix>\s*DEFAULT_REGION\s*=\s*).*$',
-                         r'\g<prefix>"' + orig_region + '"',
+                         r'\g<prefix>"' + new_region + '"',
                          content_new, flags=re.MULTILINE)
     try:
         with open(filename, 'w') as f:
@@ -205,6 +219,8 @@ def cleanup():
     """
     logging.info("Performing cleanup actions...")
 
+# --- Main Program ---
+
 def main():
     # Require running as root.
     if os.geteuid() != 0:
@@ -216,13 +232,22 @@ def main():
         description="Script to change the wireless channel on nodes based on /etc/wifibroadcast.cfg"
     )
     parser.add_argument("channel", type=int, help="Channel to set")
-    parser.add_argument("bandwidth", type=str, help="Bandwidth to set (e.g., 20, HT20, HT40+, HT40-)")
+    parser.add_argument("bandwidth", type=str, help="Bandwidth to set (e.g., HT20, HT40+, HT40-)")
     parser.add_argument("region", type=str, help="Region to set")
     parser.add_argument("--handle-local-separately", action="store_true",
                         help="If set, handle 127.0.0.1 (local node) with special logic")
     parser.add_argument("--sync-vtx", action="store_true",
                         help="If set, sync VTX by sending '/usr/bin/sync_channel.sh <channel> <bandwidth> <region>' to root@10.5.0.10")
     args = parser.parse_args()
+
+    # --- Approved Channel Validation ---
+    approved = APPROVED_CHANNELS
+    if args.bandwidth not in approved or args.channel not in approved[args.bandwidth]:
+        print("Error: The channel/bandwidth combination you provided is not approved.")
+        print("Approved channel/bandwidth combinations:")
+        for bw, ch_list in approved.items():
+            print(f"  {bw}: {', '.join(str(ch) for ch in ch_list)}")
+        sys.exit(1)
 
     # Read original default values from the defaults file.
     orig_channel, orig_bandwidth, orig_region = read_defaults()
@@ -231,10 +256,10 @@ def main():
     # Update the defaults file with the new values.
     update_defaults(args.channel, args.bandwidth, args.region)
 
-    # Build the main command that will be executed on nodes.
+    # Build the command that will be executed on nodes.
     # For local nodes, no server_address is added.
     command_local = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region}"
-    # For remote nodes, we extract server_address from the config file and pass it as an extra argument.
+    # For remote nodes, extract server_address from the config file and pass it as an extra argument.
     server_address = get_server_address()
     command_remote = f"{CHANGE_CMD_FILE} {args.channel} {args.bandwidth} {args.region} {server_address}"
     logging.info(f"Local command: {command_local}")
@@ -310,8 +335,18 @@ def main():
         result_kill = run_command("10.5.0.10", kill_command, is_local=False)
         if result_kill.returncode != 0 or "KILLSWITCH_KILLED" not in result_kill.stdout:
             logging.error(f"Failed to kill killswitch on VTX. Output: {result_kill.stdout.strip()} Error: {result_kill.stderr.strip()}")
-            logging.error("Restoring default values due to killswitch kill failure...")
-            restore_defaults(orig_channel, orig_bandwidth, orig_region)
+            logging.error("Restoring predetermined settings due to killswitch kill failure...")
+
+            # Instead of restoring the original defaults, restore to predetermined settings.
+            restore_defaults(RESTORE_CHANNEL, RESTORE_BANDWIDTH, RESTORE_REGION)
+            remote_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION} {server_address}"
+            for ip in remote_ips:
+                logging.info(f"Restoring settings on remote node {ip} with command: {remote_restore_command}")
+                result_restore = run_command(ip, remote_restore_command, is_local=False)
+                if result_restore.returncode != 0:
+                    logging.error(f"Failed to restore settings on remote node {ip}: {result_restore.stderr.strip()}")
+                else:
+                    logging.info(f"Settings restored on remote node {ip}: {result_restore.stdout.strip()}")
             sys.exit(1)
         else:
             logging.info("Successfully killed killswitch on VTX.")
