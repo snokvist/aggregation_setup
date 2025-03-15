@@ -24,9 +24,8 @@ VTX_FIND_TIMEOUT = 5  # seconds timeout for test command in find mode
 
 # Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
-    "HT20": [140, 161, 165],
-    "HT40+": [161],
-    "HT40-": [161]
+    "HT20": [165, 161, 140],
+    "HT40+": [161, 140]
 }
 
 # Predetermined restore settings (used if killswitch cancellation fails)
@@ -195,8 +194,8 @@ def find_vtx_mode():
     If no combination yields success, exit with an error message.
     """
     server_address = get_server_address()
-    # We'll use the order: HT20, then HT40+, then HT40-
-    for bandwidth in ["HT20", "HT40+", "HT40-"]:
+    # We'll use the order: HT40+, then HT20
+    for bandwidth in ["HT40+", "HT20"]:
         if bandwidth not in APPROVED_CHANNELS:
             continue
         for channel in APPROVED_CHANNELS[bandwidth]:
