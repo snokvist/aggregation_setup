@@ -11,6 +11,7 @@ fi
 MODE="forwarder"
 CLIENT_IP=""
 CLIENT_PORT=""
+INIT_METHOD="systemctl"
 
 # Parse optional arguments
 while [[ $# -gt 0 ]]; do
@@ -27,6 +28,10 @@ while [[ $# -gt 0 ]]; do
       CLIENT_PORT="$2"
       shift 2
       ;;
+    --init)
+      INIT_METHOD="$2"
+      shift 2
+      ;;
     *)
       break
       ;;
@@ -35,7 +40,7 @@ done
 
 # Ensure four positional arguments remain: <channel> <bandwidth> <region> <server_ip>
 if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 [--mode <mode>] [--client_ip <client_ip>] [--client_port <client_port>] <channel> <bandwidth> <region> <server_ip>"
+  echo "Usage: $0 [--mode <mode>] [--client_ip <client_ip>] [--client_port <client_port>] [--init <init>] <channel> <bandwidth> <region> <server_ip>"
   exit 1
 fi
 
@@ -52,6 +57,7 @@ echo "  DEFAULT_SERVER_IP=${SERVER_IP}"
 echo "  MODE=${MODE}"
 echo "  CLIENT_IP=${CLIENT_IP}"
 echo "  CLIENT_PORT=${CLIENT_PORT}"
+echo "  INIT_METHOD=${INIT_METHOD}"
 
 # Update the default values in /usr/sbin/wfb-ng.sh
 sed -i "s/^DEFAULT_CHANNEL=.*/DEFAULT_CHANNEL=${CHANNEL}/" /usr/sbin/wfb-ng.sh
@@ -61,14 +67,22 @@ sed -i "s/^DEFAULT_SERVER_IP=.*/DEFAULT_SERVER_IP=\"${SERVER_IP}\"/" /usr/sbin/w
 sed -i "s/^MODE=.*/MODE=\"${MODE}\"/" /usr/sbin/wfb-ng.sh
 sed -i "s/^CLIENT_IP=.*/CLIENT_IP=\"${CLIENT_IP}\"/" /usr/sbin/wfb-ng.sh
 sed -i "s/^CLIENT_PORT=.*/CLIENT_PORT=\"${CLIENT_PORT}\"/" /usr/sbin/wfb-ng.sh
+sed -i "s/^INIT_METHOD=.*/INIT_METHOD=\"${INIT_METHOD}\"/" /usr/sbin/wfb-ng.sh
 
 echo "Defaults updated successfully."
 
-# Restart the wfb-cluster-node service
+# Restart the wfb-cluster-node service based on the INIT_METHOD
 echo "Restarting wfb-cluster-node service..."
-if ! /etc/init.d/wfb-ng restart; then
-  echo "Failed to restart wfb-cluster-node service."
-  exit 1
+if [ "$INIT_METHOD" = "init.d" ]; then
+  if ! /etc/init.d/wfb-ng restart; then
+    echo "Failed to restart wfb-cluster-node service."
+    exit 1
+  fi
+else
+  if ! systemctl restart wfb-cluster-node; then
+    echo "Failed to restart wfb-cluster-node service."
+    exit 1
+  fi
 fi
 
 echo "Service restarted successfully."
