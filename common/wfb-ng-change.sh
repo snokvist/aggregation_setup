@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Ensure four positional arguments remain: <channel> <bandwidth> <region> <server_ip>
-if [ "$#" -ne 4 ]; then
+if [ "$#" -ne 3 ]; then
   echo "Usage: $0 [--mode <mode>] [--client_ip <client_ip>] [--client_port <client_port>] [--init <init>] <channel> <bandwidth> <region> <server_ip>"
   exit 1
 fi
