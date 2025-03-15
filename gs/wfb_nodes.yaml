@@ -1,37 +1,37 @@
 nodes:
-  name: Google_wifi_1
-  type: forwarder
-  ip_address: 192.168.2.30
-  wlan_interfaces: "wfb-phy1"
-  init_system: init.d
-  channel: 161
-  bandwidth: HT20
-  region: US
-  aggregator_settings:
-    peer: connect://224.0.0.1:5600
-    rx_port:
-  local_settings:
-    peer: connect://224.0.0.1:5600
+  Google_wifi_1:
+    type: forwarder
+    ip_address: 192.168.2.30
+    wlan_interfaces: "wfb-phy1"
+    init_system: init.d
+    channel: 161
+    bandwidth: HT20
+    region: US
+    aggregator_settings:
+      peer: connect://224.0.0.1:5600
       rx_port:
-  forwarder_settings:
-  wfb_ng:
-    gs_video_settings:
-      client_ip: 192.168.2.20
-      client_port: 10000
-      wifi_port: 0
-      wifi_link: 7669206
-      buffer_size: 2097152
-      ldpc: 0
-      stbc: 0
-    gs_tunnel_settings:
-      client_ip: 192.168.2.20
-      client_port: 10001
-      wifi_rx_port: 32
-      wifi_tx_port:
-      wifi_link: 7669206
-      buffer_size: 2097152
-      ldpc: 0
-      stbc: 0
+    local_settings:
+      peer: connect://224.0.0.1:5600
+        rx_port:
+    forwarder_settings:
+    wfb_ng:
+      gs_video_settings:
+        client_ip: 192.168.2.20
+        client_port: 10000
+        wifi_port: 0
+        wifi_link: 7669206
+        buffer_size: 2097152
+        ldpc: 0
+        stbc: 0
+      gs_tunnel_settings:
+        client_ip: 192.168.2.20
+        client_port: 10001
+        wifi_rx_port: 32
+        wifi_tx_port:
+        wifi_link: 7669206
+        buffer_size: 2097152
+        ldpc: 0
+        stbc: 0
 
   
       
