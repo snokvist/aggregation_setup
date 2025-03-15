@@ -14,11 +14,13 @@ DEFAULTS_FILE = "/usr/sbin/wfb-ng.sh"       # file holding default values to upd
 CHANGE_CMD_FILE = "/usr/sbin/wfb-ng-change.sh"  # command to run on nodes
 SSH_TIMEOUT = 5       # general SSH timeout in seconds
 
-# Timeout for killing the killswitch (separate from SSH_TIMEOUT)
-KILLSWITCH_TIMEOUT = 10  # seconds
+# New dedicated constants for killswitch delay and timeout (now 10 sec)
+KILLSWITCH_DELAY = 10  # seconds to wait before attempting to kill killswitch
+KILLSWITCH_TIMEOUT = 10  # seconds for the killall killswitch command timeout
 
-# Delay before attempting to kill the killswitch, to allow link establishment
-KILLSWITCH_DELAY = 10    # seconds
+# New dedicated constants for find mode:
+VTX_FIND_DELAY = 10   # seconds to wait after setting channel in find mode
+VTX_FIND_TIMEOUT = 5  # seconds timeout for test command in find mode
 
 # Approved channel combinations (easily changed here)
 APPROVED_CHANNELS = {
@@ -30,15 +32,11 @@ APPROVED_CHANNELS = {
 # Predetermined restore settings (used if killswitch cancellation fails)
 RESTORE_CHANNEL = 165
 RESTORE_BANDWIDTH = "HT20"
-RESTORE_REGION = "US"
+RESTORE_REGION = "00"
 
 # --- Utility Functions ---
 
 def read_defaults(filename=DEFAULTS_FILE):
-    """
-    Read and return the current default values from the given file.
-    Returns a tuple (default_channel, default_bandwidth, default_region).
-    """
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -54,9 +52,6 @@ def read_defaults(filename=DEFAULTS_FILE):
     return channel_match.group(1), bandwidth_match.group(1), region_match.group(1)
 
 def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
-    """
-    Update the default values in the given file to the new values.
-    """
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -81,10 +76,6 @@ def update_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FI
     logging.info("Default values updated successfully.")
 
 def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_FILE):
-    """
-    Restore the default values in the given file to the specified settings.
-    (Used both for normal restore and for predetermined restore.)
-    """
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -110,10 +101,6 @@ def restore_defaults(new_channel, new_bandwidth, new_region, filename=DEFAULTS_F
     return True
 
 def get_server_address(filename=CONFIG_FILE):
-    """
-    Extract the server_address value from the config file.
-    Expects a line like: server_address = '192.169.1.49'
-    """
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -127,9 +114,6 @@ def get_server_address(filename=CONFIG_FILE):
     return match.group(1)
 
 def extract_nodes_block(content):
-    """
-    Extract the entire nodes block from the config file.
-    """
     match = re.search(r'nodes\s*=\s*\{', content)
     if not match:
         logging.error("Could not find 'nodes' block in config file.")
@@ -149,9 +133,6 @@ def extract_nodes_block(content):
     return content[start_index:i-1]
 
 def parse_nodes(filename=CONFIG_FILE):
-    """
-    Parse the config file to extract node IP addresses from the nodes keys.
-    """
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -167,11 +148,6 @@ def parse_nodes(filename=CONFIG_FILE):
     return ips
 
 def run_command(ip, command, is_local=False, timeout=SSH_TIMEOUT):
-    """
-    Run the given command either locally or remotely (via SSH).
-    The timeout parameter defaults to SSH_TIMEOUT but can be overridden.
-    Returns a subprocess.CompletedProcess instance.
-    """
     try:
         if is_local:
             logging.info(f"Running local command on {ip}: {command}")
@@ -205,24 +181,84 @@ def run_command(ip, command, is_local=False, timeout=SSH_TIMEOUT):
 def cleanup():
     logging.info("Performing cleanup actions...")
 
+# --- New Functionality: Find VTX Mode ---
+
+def find_vtx_mode():
+    """
+    Cycle through all approved channel and bandwidth combinations (using region "US")
+    to find an active VTX.
+    For each combination:
+      1. Send commands to local and remote nodes to change the channel.
+      2. Wait for VTX_FIND_DELAY seconds.
+      3. Issue a test command to VTX (10.5.0.10) with a timeout of VTX_FIND_TIMEOUT seconds.
+      4. If the test command returns the marker "VTX Found", print success and exit.
+    If no combination yields success, exit with an error message.
+    """
+    server_address = get_server_address()
+    # We'll use the order: HT20, then HT40+, then HT40-
+    for bandwidth in ["HT20", "HT40+", "HT40-"]:
+        if bandwidth not in APPROVED_CHANNELS:
+            continue
+        for channel in APPROVED_CHANNELS[bandwidth]:
+            logging.info(f"Trying channel {channel} with bandwidth {bandwidth} on VTX...")
+            # In find mode, region is fixed to "US"
+            region = "US"
+            # Build command strings for local and remote nodes.
+            command_local = f"{CHANGE_CMD_FILE} {channel} {bandwidth} {region}"
+            command_remote = f"{CHANGE_CMD_FILE} {channel} {bandwidth} {region} {server_address}"
+            # Change channel on local node.
+            logging.info(f"Setting local node (127.0.0.1) to channel {channel}, {bandwidth}, {region}")
+            run_command("127.0.0.1", command_local, is_local=True)
+            # Change channel on remote nodes.
+            ips = parse_nodes()
+            remote_ips = [ip for ip in ips if ip != "127.0.0.1"]
+            for ip in remote_ips:
+                logging.info(f"Setting remote node {ip} to channel {channel}, {bandwidth}, {region}")
+                run_command(ip, command_remote, is_local=False)
+            # Wait for the channel to establish.
+            logging.info(f"Waiting for {VTX_FIND_DELAY} seconds for channel establishment...")
+            time.sleep(VTX_FIND_DELAY)
+            # Issue test command to VTX.
+            test_cmd = 'echo "VTX Found"; exit'
+            logging.info("Testing for VTX on 10.5.0.10...")
+            test_result = run_command("10.5.0.10", test_cmd, is_local=False, timeout=VTX_FIND_TIMEOUT)
+            if test_result.returncode == 0 and "VTX Found" in test_result.stdout:
+                print(f"Found VTX on channel {channel} with bandwidth {bandwidth}.")
+                sys.exit(0)
+            else:
+                logging.info(f"VTX not found on channel {channel} with bandwidth {bandwidth}.")
+    print("No VTX found on available approved channel/bandwidth combinations.")
+    sys.exit(1)
+
 # --- Main Program ---
 
 def main():
     if os.geteuid() != 0:
         logging.error("This program must be run as root.")
         sys.exit(1)
-
     parser = argparse.ArgumentParser(
         description="Script to change the wireless channel on nodes based on /etc/wifibroadcast.cfg"
     )
-    parser.add_argument("channel", type=int, help="Channel to set")
-    parser.add_argument("bandwidth", type=str, help="Bandwidth to set (e.g., HT20, HT40+, HT40-)")
-    parser.add_argument("region", type=str, help="Region to set")
+    # In find-vtx mode, the positional arguments are optional.
+    parser.add_argument("channel", type=int, nargs="?", help="Channel to set")
+    parser.add_argument("bandwidth", type=str, nargs="?", help="Bandwidth to set (e.g., HT20, HT40+, HT40-)")
+    parser.add_argument("region", type=str, nargs="?", help="Region to set")
     parser.add_argument("--handle-local-separately", action="store_true",
                         help="If set, handle 127.0.0.1 with special logic")
     parser.add_argument("--sync-vtx", action="store_true",
                         help="If set, sync VTX by sending '/usr/bin/sync_channel.sh <channel> <bandwidth> <region>' to root@10.5.0.10")
+    parser.add_argument("--find-vtx", action="store_true",
+                        help="If set, cycle through approved channel/bandwidth combinations (region 'US') to find an active VTX")
     args = parser.parse_args()
+
+    # If --find-vtx is provided, run find_vtx_mode and exit.
+    if args.find_vtx:
+        find_vtx_mode()
+
+    # For normal operation, channel, bandwidth, and region are required.
+    if args.channel is None or args.bandwidth is None or args.region is None:
+        logging.error("Channel, bandwidth, and region must be provided for normal operation.")
+        sys.exit(1)
 
     # --- Approved Channel Validation ---
     approved = APPROVED_CHANNELS
@@ -316,8 +352,6 @@ def main():
         if result_kill.returncode != 0 or "KILLSWITCH_KILLED" not in result_kill.stdout:
             logging.error(f"Failed to kill killswitch on VTX. Output: {result_kill.stdout.strip()} Error: {result_kill.stderr.strip()}")
             logging.error("Restoring predetermined settings due to killswitch kill failure...")
-
-            # Restore predetermined settings locally.
             restore_defaults(RESTORE_CHANNEL, RESTORE_BANDWIDTH, RESTORE_REGION)
             local_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION}"
             logging.info(f"Restoring settings on local node 127.0.0.1 with command: {local_restore_command}")
@@ -326,8 +360,6 @@ def main():
                 logging.error(f"Failed to restore settings on local node 127.0.0.1: {result_local_restore.stderr.strip()}")
             else:
                 logging.info(f"Settings restored on local node 127.0.0.1: {result_local_restore.stdout.strip()}")
-
-            # Restore predetermined settings on remote nodes.
             remote_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION} {server_address}"
             for ip in remote_ips:
                 logging.info(f"Restoring settings on remote node {ip} with command: {remote_restore_command}")
