@@ -11,8 +11,8 @@ DEFAULT_SERVER_IP="192.168.1.20"
 
 # Default mode is forwarder;
 MODE="forwarder"
-CLIENT_IP="192.168.1.20"
-CLIENT_PORT="5600"
+CLIENT_IP=""
+CLIENT_PORT=""
 
 # Parse optional arguments
 while [[ $# -gt 0 ]]; do
