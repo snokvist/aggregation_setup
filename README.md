@@ -75,8 +75,11 @@ sudo iptables -t nat -A PREROUTING -p tcp --dport 2222 -d 192.168.1.20 -j DNAT -
 sudo iptables -t nat -A POSTROUTING -p tcp -d 10.5.0.10 --dport 22 -j MASQUERADE
 
 sudo apt-get install iptables-persistent
+
 sudo netfilter-persistent save
 
 sudo sysctl -w net.ipv4.ip_forward=1
+
 sysctl net.ipv4.ip_forward
+
 sudo sed -i '/^net.ipv4.ip_forward=/d' /etc/sysctl.conf && echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
