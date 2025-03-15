@@ -1,0 +1,5 @@
+nodes:
+  name: Google_wifi_1
+  type: node / unmanaged / master_node
+  ip_address: 192.168.2.30
+  
