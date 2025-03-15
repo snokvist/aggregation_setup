@@ -352,7 +352,7 @@ def main():
             logging.error(f"Failed to kill killswitch on VTX. Output: {result_kill.stdout.strip()} Error: {result_kill.stderr.strip()}")
             logging.error("Restoring predetermined settings due to killswitch kill failure...")
             restore_defaults(RESTORE_CHANNEL, RESTORE_BANDWIDTH, RESTORE_REGION)
-            local_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION}"
+            local_restore_command = f"{CHANGE_CMD_FILE} {RESTORE_CHANNEL} {RESTORE_BANDWIDTH} {RESTORE_REGION} 127.0.0.1"
             logging.info(f"Restoring settings on local node 127.0.0.1 with command: {local_restore_command}")
             result_local_restore = run_command("127.0.0.1", local_restore_command, is_local=True)
             if result_local_restore.returncode != 0:
